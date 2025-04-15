@@ -397,6 +397,12 @@ Long-term scheduler负责**平衡(good process mix) ** I/O-bound进程和CPU-bou
 
 调度可以选择赋予进程优先级来选择下一个要运行的进程，优先级的分配方式分为**动态与静态**。但有的时候一些低优先级的进程会遭遇**starvation**因为高优先级的进程的不断出现。
 
+进程之间的调度时间一般不对**第一个进程**考虑
+
+turnaround=**结束时间-到达时间**
+
+
+
 ### FCFS
 
 First-Come, First-Served (**FCFS**)
@@ -483,7 +489,7 @@ SJF调度过程如下，这里假设是**同时**到达的
 
 如果q太大，会变为**FIFO**模式，太小会频繁地**context switch**增加开销(**至少比context switch的开销大**)，一般在**10ms to 100ms**
 
----
+
 
 对于q=4的图如下所示
 
