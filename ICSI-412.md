@@ -968,3 +968,210 @@ execlp("ls","ls","-l","a.c",NULL);
 
 
 ​	
+
+
+
+# Mutual Exclusion
+
+当程序的执行结果依赖于多个线程之间的**精确的执行顺序**(共享资源，执行影响结果)时，就存在竟态条件race condition
+
+
+
+考虑如下代码
+
+```C
+char chin, chout; // 全局变量
+
+void echo() {
+    do {
+        chin = getchar();
+        chout = chin;
+        putchar(chout);
+    } while (...);
+}
+```
+
+当多个线程运行此程序时，可能出现A读取了一个字符到chin中还没来得及输出，B就将chin**覆盖**
+
+
+
+```C
+void echo() {
+    char chin, chout; // 局部变量
+    do {
+        chin = getchar();
+        chout = chin;
+        putchar(chout);
+    } while (...);
+}
+```
+
+即使改为局部变量也不能保证正确输出，因为多个程序**尝试输出**导致输出的顺序不确定
+
+
+
+在汇编语言中，x=x+1会被如下方式执行
+
+<img src="./assets/image-20250423162858498.png" alt="image-20250423162858498" style="zoom:67%;" />
+
+这个过程中可能发生竟态
+
+
+
+想要避免竟态，关键在于将指令成组执行，避免线程之间过度交错(interleaving)，从而划分**关键区域** critical region(**CR**或者说是 "indivisible" blocks of execution )。
+
+关键区域是同一时间只能被一个进程或者线程执行的部分
+
+<img src="./assets/image-20250423160110932.png" alt="image-20250423160110932" style="zoom:50%;" />
+
+<img src="./assets/image-20250423160228872.png" alt="image-20250423160228872" style="zoom:67%;" />
+
+
+
+implementation0 
+
++ A进入关键区域后关闭所有的**interupts**，离开时重启中断
++ 只适用于**单核**
++ 不应该给用户**中断**的能力
+
+
+
+implementation1
+
++ 使用lock变量(**全局变量**)，A进入后设置为1，离开时设置为0
+
+<img src="./assets/image-20250423161213151.png" alt="image-20250423161213151" style="zoom:67%;" />
+
+但是在**test**的过程中可能会发生竟态，导致两个线程**同时**进入关键区域
+
+
+
+**indivisible原子操作**——操作不能被中断或被其他线程看到中间状态
+
+
+
+implementation2
+
++ A先到达CR，通过一个**原子操作**(不可分割地读和写)将其设为1然后进入，这个不可分割的操作可用**TSL**硬件指令实现, CPU会锁柱memory bus，**1**表示锁住，**0**表示未上锁
+
+<img src="./assets/image-20250423162019803.png" alt="image-20250423162019803" style="zoom:67%;" />
+
+
+
+
+
+如果两个人都要取钱，银行会亏损，因为余额被错误更新(total-x but not total-x-x )
+
+<img src="./assets/image-20250423182503649.png" alt="image-20250423182503649" style="zoom:67%;" />
+
+
+
+critical section访问共享资源的代码段，临界区(不知道和CR有什么区别)
+
+Mutual Exclusion 同一时间只有一个线程或进程可以访问共享资源(临界区)
+
+Progress 没有线程在临界区运行，那么就不能阻止其他线程进入临界区
+
+Bounded Waiting 线程不会永远等待，它最终一定能进入临界区
+
+不对CPU速度切换时间，或数量做假设
+
+
+
+实现互斥的几种方法：
+
+
+
+Supervisory server监督服务器：
+
++ 进程在访问共享资源之前，先向服务器发送**请求**
++ 服务器根据当前状态判断是否允许访问，如果资源被占用——拒绝(**refusal**)并把请求者放入**等待队列**，反之发送**许可**(permission)
++ 进程使用完资源后向服务器发送释放信息，服务器接收到信息后从等待队首取出下一个进程，授予其访问权
+
+<img src="./assets/image-20250423183902337.png" alt="image-20250423183902337" style="zoom:50%;" />
+
+<img src="./assets/image-20250423183924094.png" alt="image-20250423183924094" style="zoom:50%;" />
+
+<img src="./assets/image-20250423184002390.png" alt="image-20250423184002390" style="zoom:50%;" />
+
+
+
+多路访问协议MAC
+
++ 单一共享广播信道，多个设备通过**一个信道**发送数据，Single shared broadcast channel
++ 如果两个或多个**同时**发送数据，会发送Collision，数据可能**丢失**
++ 三种常见的多路访问协议
+  + Channel Partitioning 信道会被分为多个小片段，时分/频分/编码(code)
+  + Random Access，信道不预先划分，设备随时尝试发送。ALOHA，CSMA，CSMA/CD
+  + Taking Turns，轮询，令牌传递
+
+
+
+CSMA/CD
+
++ **发送之前先监听**，如果有节点正在发送那么就**等待**
+
++ Collision Detection冲撞检测，一**边发送一边检测**，如果有节点也在发送(接收到的数据不同) 则**停止**并发送噪声信号J**amming Signal**
+
++ 发生冲突后等待一个随机时间(**Randomness**)，使用**二进制**指数退避，注意时间不必是2的幂次
+
+<img src="./assets/image-20250423185243404.png" alt="image-20250423185243404" style="zoom:50%;" />
+
+
+
+<img src="./assets/image-20250423185614761.png" alt="image-20250423185614761" style="zoom:50%;" />
+
+
+
+Peterson’s Solution
+
++ 限制在**两个进程**
++ 假设**LOAD**和**STOR**是**原子性**的
++ 两个进程共享**int turn**(指定谁先进入临界区)和**int flag[2]**\(初始化为False)
+  + flag[0] = true implies that process P0 is ready! 
+  + flag[0] = false implies that process P0 is not ready! 
+  + flag[1] = true implies that process P1 is ready! 
+  + flag[1] = false implies that process P1 is not
+
+代码的设计保证了不会阻塞且互斥，注意**turn设置为对方**
+
+<img src="./assets/image-20250423190900564.png" alt="image-20250423190900564" style="zoom:50%;" />
+
+
+
+Peterson’s Solution不适用于现代计算机，因为现代计算机**乱序**执行和内存重排序来提高性能
+
+<img src="./assets/image-20250423191339254.png" alt="image-20250423191339254" style="zoom:50%;" />
+
+
+
+TSL和Peterson’s Solution虽然可以实现互斥但是会出现**Busy waiting**——浪费CPU时间不断循环检查条件，会导致优先级反转**Priority inversion**
+
+<img src="./assets/image-20250423191948834.png" alt="image-20250423191948834" style="zoom:50%;" />
+
+上述程序有Busy waiting的问题，且如果一个进程出问题了，另一个要等待无限长的时间
+
+
+
+无论是什么方法，进入临界区之前都需要**锁**
+
+
+
+
+
+**Semaphores信号量**
+
++ 初始化：可以将信号量初始化为任意**非负值**。例如，S=10表示系统最多支持10个用户登录。
+
++ 减1操作（P操作 down）：进程执行 `P(S)` 操作时，信号量值减1。只有当信号量值**大于0**时，进程才能继续执行；如果信号量值为0，进程会**阻塞**，进入等待队列。
++ 加1操作（V操作 up）：进程执行 `V(S)` 操作时，信号量值加1。如果有进程因信号量为0而阻塞，那么执行 `V(S)` 后会**唤醒**一个阻塞的进程。否则，信号量值会**简单增加**。
+
+
+
+信号量操作是**原子操作**，内部可能使用TSL
+
+进程想要进入时执行**down**操作，退出时执行**up**操作
+
+
+
+Binary Semaphore 即**S=1/0**，也被称为 mutex（互斥锁）
