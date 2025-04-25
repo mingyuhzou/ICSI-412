@@ -1357,3 +1357,136 @@ TSL和Peterson’s Solution虽然可以实现互斥但是会出现**Busy waiting
 
 
 Binary Semaphore 即**S=1/0**，也被称为 mutex（互斥锁）
+
+
+
+ # Sockets
+
+计算机网络是一组相互关联(**interconnected collection**)的自主(**autonomous**)计算机集合
+
+
+
+网络包含：
+
++ 硬件设备
+  + **互联传输介质**，Interconnect transmission media
+  + **运行协议软件**，Run protocol software
+  + **控制数据传输**，Control transmission of data
++ 协议软件
+  + **编码**和**格式化**数据
+  + **检测**和**修正**传输中遇到的问题
+
+
+
+地址address：唯一标识网络中节点的字节字符串
+
++ 单播**unicast**，消息发送给特定节点，属于点到点的同行
++ 广播**broadcast**，消息发送给网络中所有的节点
++ 组播**multicast**，消息发送到网络中一个特定的节点子集
+
+
+
+路由**route**：将消息从发送端传送到目标结点的过程，这个过程依赖**目标结点的地址**
+
+
+
+大多数网络应用可以划分为**客户端**(sometime on 主动发起连接)和**服务器**(always on 被动接收请求，需要固定的地址)
+
+
+
+Socket是一个**抽象层**，通过它，应用程序可以**发送和接收数据**。它类似于他打开一个文件句柄(open-file handle)，应用程序通过文件句柄与文件进行读写操作，而应用程序通过socket与网络中的**其他应用**进行数据交换。
+
+通过socket，处于**同一网络中**的不同应用程序可用互相通信
+
+socket是进程间通信的端点**(end point)**，本身也作为**API**用于创建网络应用程序，数据的传输必须通过**底层的网络**。
+
+
+
+数据传输的过程
+
++ **网络层**基于目标**IP**地址发送**数据包**
++ **操作系统层**基于目标**的端口号**传送数据到目标**socket**
++ **应用层**读写socket中的数据，并解释
+
+
+
+TCP(**Stream Socket**)
+
++ **保证交付 Reliable**
++ **字节流stream of bytes-按顺序交付**
++ **面向连接connect oriented，每一个连接有一个socket**
++ **传输数据前建立连接**
+
+
+
+UDP(**Datagram Socket**)，多媒体，IP语音，类似于Postal Mail
+
++ **不保证交付 No Guaranteed delivery best effort** 
++ **无序 no in-order**
++ **数据包独立**
++ **单一的socket接收信息**
++ **必须为每个数据包指定地址**
++ **无连接 connectionless**
+
+
+
+IPv4 **32**位，IPv6 **128**位
+
+每个主机可以运行多个不同的进程，因此需要端口号port来唯一标识每个进程的通信端口。，端口号是一个**16**位的数字，**web-80** **email-25**
+
+服务器使用**0-1023**的端口(需要**root**权限)，客户端使用**1024-65535**的临时**ephemeral**端口
+
+
+
+socket标识符由三部分组成：**主机地址host address 传输协议 Protocol 端口号Port Number**
+
+主机之间的通信通过两个IP地址和两个端口号来标识，同时**底层协议**(TCP/UDP)也会影响通信的区分。
+
+
+
+对于客户端
+
++ 初始化
+  + gethostbyname
+  + **socket 创建**
+  + **connect 连接到端口**
++ 传输数据
+  + send
+  + recv
++ 中断
+  + close
+
+
+
+对于服务器
+
++ 初始化
+  + **socket**
+  + **bind 绑定端口**
+  + **listen 进入监听状态**
++ 循环
+  + **accept 接收请求**
+  + rec
+  + send
++ 中断
+  + close
+
+
+
+<img src="./assets/image-20250425143445795.png" alt="image-20250425143445795" style="zoom:50%;" />
+
+注意到TCP**先建立连接再传送请求**
+
+<img src="./assets/image-20250425143806025.png" alt="image-20250425143806025" style="zoom:50%;" />
+
+
+
+通过**fork**处理客户端请求
+
+<img src="./assets/image-20250425150613994.png" alt="image-20250425150613994" style="zoom:67%;" />
+
+servSock服务器套接字，**用于监听请求**
+
+clntSock客户端套接字，**与发送请求的客户端通信(accept返回)**
+
+**父进程需要关闭clntSock**，因为子进程去处理了，**子进程要关闭servSock**，因为它不需要监听
